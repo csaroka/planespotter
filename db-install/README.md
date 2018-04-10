@@ -3,6 +3,8 @@ How to prepare a MySQL Database for the Demo
 
 # Create the Database
 
+`kubectl create -f kubernetes/mysql-statefulset-single.yaml`
+
 `cd ~/planespotter/db-install/`
 
 `wget http://registry.faa.gov/database/ReleasableAircraft.zip`
