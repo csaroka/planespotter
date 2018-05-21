@@ -20,7 +20,7 @@ metadata:
   name: mysql
   namespace: planespotter
 spec:
-  serviceName: "mysql"
+  serviceName: mysql
   replicas: 1
   template:
     metadata:
@@ -41,6 +41,67 @@ spec:
         volumeMounts:
         - name: mysql-vol
           mountPath: /var/lib/mysql
+        - name: mysql-config
+          mountPath: /bin/planespotter-install.sh
+          subPath: planespotter-install.sh
+        - name: mysql-start
+          mountPath: /bin/mysql-start.sh
+          subPath: mysql-start.sh
+        command: ["/bin/mysql-start.sh"]
+      - name: telegraf
+        image: puckpuck/wavefront-telegraf-sidecar
+        ports:
+        - name: udp-statsd
+          containerPort: 8125
+        - name: udp-8092
+          containerPort: 8092
+        - name: tcp-8094
+          containerPort: 8094
+        env:
+        - name: WAVEFRONT_PROXY
+          value: wavefront-proxy.default
+        - name: INTERVAL
+          value: 60s
+        - name: METRIC_SOURCE_NAME
+          # This can be changed to use the Deployment / Statefulset name instead as a simple value
+          # The metric source name should not be an ephemeral value
+          value: planespotter-mysql
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        resources:
+          requests:
+            memory: 30Mi
+            cpu: 100m
+          limits:
+            memory: 50Mi
+            cpu: 200m
+        volumeMounts:
+        - name: telegraf-d
+          mountPath: /etc/telegraf/telegraf.d
+      volumes:
+      - name: telegraf-d
+        projected:
+          sources:
+          - configMap:
+              name: telegraf-mysql-config
+      - name: mysql-config
+        configMap:
+          defaultMode: 0700
+          name: mysql-config-map
+      - name: mysql-start
+        configMap:
+          defaultMode: 0700
+          name: mysql-start-map
   volumeClaimTemplates:
   - metadata:
       name: mysql-vol
@@ -50,3 +111,132 @@ spec:
       resources:
         requests:
           storage: 20Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telegraf-mysql-config
+  namespace: planespotter
+data:
+  mysql.conf: |
+    [[inputs.mysql]]
+      ## specify servers via a url matching:
+      ##  [username[:password]@][protocol[(address)]]/[?tls=[true|false|skip-verify]]
+      ##  see https://github.com/go-sql-driver/mysql#dsn-data-source-name
+      ##  e.g.
+      ##    servers = ["user:passwd@tcp(127.0.0.1:3306)/?tls=false"]
+      ##    servers = ["user@tcp(127.0.0.1:3306)/?tls=false"]
+      #
+      # UPDATE THIS FIELD HERE.  USE ENV VARIABLES IF NEEDED
+      servers = ["root:password@tcp(localhost:3306)/"]
+      #
+      ## the limits for metrics form perf_events_statements
+      perf_events_statements_digest_text_limit  = 120
+      perf_events_statements_limit              = 250
+      perf_events_statements_time_limit         = 86400
+      #
+      ## if the list is empty, then metrics are gathered from all database tables
+      table_schema_databases                    = []
+      #
+      ## gather metrics from INFORMATION_SCHEMA.TABLES for databases provided above list
+      gather_table_schema                       = false
+      #
+      ## gather thread state counts from INFORMATION_SCHEMA.PROCESSLIST
+      gather_process_list                       = true
+      #
+      ## gather thread state counts from INFORMATION_SCHEMA.USER_STATISTICS
+      gather_user_statistics                    = true
+      #
+      ## gather auto_increment columns and max values from information schema
+      gather_info_schema_auto_inc               = true
+      #
+      ## gather metrics from INFORMATION_SCHEMA.INNODB_METRICS
+      gather_innodb_metrics                     = true
+      #
+      ## gather metrics from SHOW SLAVE STATUS command output
+      gather_slave_status                       = true
+      #
+      ## gather metrics from SHOW BINARY LOGS command output
+      gather_binary_logs                        = false
+      #
+      ## gather metrics from PERFORMANCE_SCHEMA.TABLE_IO_WAITS_SUMMARY_BY_TABLE
+      gather_table_io_waits                     = false
+      #
+      ## gather metrics from PERFORMANCE_SCHEMA.TABLE_LOCK_WAITS
+      gather_table_lock_waits                   = false
+      #
+      ## gather metrics from PERFORMANCE_SCHEMA.TABLE_IO_WAITS_SUMMARY_BY_INDEX_USAGE
+      gather_index_io_waits                     = false
+      #
+      ## gather metrics from PERFORMANCE_SCHEMA.EVENT_WAITS
+      gather_event_waits                        = false
+      #
+      ## gather metrics from PERFORMANCE_SCHEMA.FILE_SUMMARY_BY_EVENT_NAME
+      gather_file_events_stats                  = false
+      #
+      ## gather metrics from PERFORMANCE_SCHEMA.EVENTS_STATEMENTS_SUMMARY_BY_DIGEST
+      gather_perf_events_statements             = false
+      #
+      ## Some queries we may want to run less often (such as SHOW GLOBAL VARIABLES)
+      interval_slow                             = "30m"
+
+      # Specify optional tags to be applied to all metrics for this plugin
+      # NOTE: Order matters, this needs to be at the end of the plugin definition
+      # [[inputs.mysql.tags]]
+        # tag1 = "foo"
+        # tag2 = "bar"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config-map
+  namespace: planespotter
+data:
+  planespotter-install.sh: |
+    #!/bin/sh
+    # sleep while mysql is starting up
+    while [ -z "$ALIVE" ] || [ "$ALIVE" != 'mysqld is alive' ]
+    do
+      echo "waiting for mysql..."
+      sleep 3
+      ALIVE=`mysqladmin ping --user=root --password=$MYSQL_ROOT_PASSWORD`
+      echo "status: $ALIVE"
+    done
+    echo "MYSQL is alive, checking database..."
+    DBEXIST=`mysql --user=root --password=$MYSQL_ROOT_PASSWORD -e 'show databases;' | grep planespotter`
+    if ! [ -z "$DBEXIST" ]
+    then
+      echo "planespotter db already installed."
+    else 
+      echo "------- MYSQL DATABASE SETUP -------"
+      echo "updating apt-get..."
+      apt-get update
+      echo "apt-get installing curl..."
+      apt-get --assume-yes install curl
+      apt-get --assume-yes install wget
+      apt-get --assume-yes install unzip
+      echo "downloading planespotter scripts..."
+      mkdir ~/planespotter
+      mkdir ~/planespotter/db-install
+      cd ~/planespotter/db-install
+      curl -L -o create-planespotter-db.sh https://github.com/puckpuck/planespotter/raw/master/db-install/create-planespotter-db.sh
+      curl -L -o create-planespotter-db.sql https://github.com/puckpuck/planespotter/raw/master/db-install/create-planespotter-db.sql
+      curl -L -o delete-planespotter-db.sh https://github.com/puckpuck/planespotter/raw/master/db-install/delete-planespotter-db.sh
+      curl -L -o delete-planespotter-db.sql https://github.com/puckpuck/planespotter/raw/master/db-install/delete-planespotter-db.sql
+      echo "creating a new planespotter db"
+      chmod +x create-planespotter-db.sh
+      ./create-planespotter-db.sh
+    fi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-start-map
+  namespace: planespotter
+data:
+  mysql-start.sh: |
+    #!/bin/sh
+    echo "starting planespotter-installer in background"
+    /bin/planespotter-install.sh &
+    echo "starting mysqld.."
+    /entrypoint.sh mysqld
