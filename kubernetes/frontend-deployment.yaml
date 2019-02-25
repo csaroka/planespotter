@@ -8,7 +8,7 @@ metadata:
     app: planespotter-frontend
     tier: frontend
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: planespotter-frontend
@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: planespotter-frontend
-        image: nvpnathan/planespotter-frontend:v1
+        image: nvpnathan/planespotter-frontend:v1 
         imagePullPolicy: Always
         env:
         - name: PLANESPOTTER_API_ENDPOINT
@@ -36,7 +36,7 @@ spec:
           containerPort: 8094
         env:
         - name: WAVEFRONT_PROXY
-          value: wavefront-proxy.default
+          value: wavefront-proxy.kube-system
         - name: INTERVAL
           value: 20s
         - name: METRIC_SOURCE_NAME
@@ -93,7 +93,7 @@ metadata:
   namespace: planespotter
 spec:
   rules:
-  - host: planespotter.ing.vballin.com
+  - host: planespotter.k8slabapps.lab.local
     http:
       paths:
       - backend:

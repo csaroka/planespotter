@@ -27,7 +27,7 @@ spec:
           containerPort: 8094
         env:
         - name: WAVEFRONT_PROXY
-          value: wavefront-proxy.default
+          value: wavefront-proxy.kube-system
         - name: INTERVAL
           value: 20s
         - name: METRIC_SOURCE_NAME

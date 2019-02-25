@@ -59,7 +59,7 @@ spec:
           containerPort: 8094
         env:
         - name: WAVEFRONT_PROXY
-          value: wavefront-proxy.default
+          value: wavefront-proxy.kube-system
         - name: INTERVAL
           value: 60s
         - name: METRIC_SOURCE_NAME
@@ -145,7 +145,7 @@ data:
       gather_process_list                       = true
       #
       ## gather thread state counts from INFORMATION_SCHEMA.USER_STATISTICS
-      gather_user_statistics                    = true
+      gather_user_statistics                    = false
       #
       ## gather auto_increment columns and max values from information schema
       gather_info_schema_auto_inc               = true
@@ -240,3 +240,4 @@ data:
     /bin/planespotter-install.sh &
     echo "starting mysqld.."
     /entrypoint.sh mysqld
+
