@@ -13,11 +13,13 @@ spec:
     spec:
       containers:
       - name: redis-server
-        image: redis
+        # image: redis
+        image: harbor.lab.local/planespotter/redis:v1
         ports:
         - containerPort: 6379
       - name: telegraf
-        image: puckpuck/wavefront-telegraf
+        # image: puckpuck/wavefront-telegraf
+        image: harbor.lab.local/planespotter/wavefront-telegraf:v1
         ports:
         - name: udp-statsd
           containerPort: 8125
@@ -27,7 +29,7 @@ spec:
           containerPort: 8094
         env:
         - name: WAVEFRONT_PROXY
-          value: wavefront-proxy.kube-system
+          value: wavefront-proxy.default
         - name: INTERVAL
           value: 20s
         - name: METRIC_SOURCE_NAME
@@ -123,7 +125,8 @@ spec:
     spec:
       containers:
       - name: adsb-sync
-        image: yfauser/adsb-sync:1d791ea6e96eb50adb15e773d1d783f511618c97
+        # image: yfauser/adsb-sync:1d791ea6e96eb50adb15e773d1d783f511618c97
+        image: harbor.lab.local/planespotter/adsb-sync:v1
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: config-volume

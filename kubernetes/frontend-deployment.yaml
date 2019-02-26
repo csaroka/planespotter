@@ -20,13 +20,15 @@ spec:
     spec:
       containers:
       - name: planespotter-frontend
-        image: nvpnathan/planespotter-frontend:v1 
+        # image: nvpnathan/planespotter-frontend:v1
+        image: harbor.lab.local/planespotter/frontend:v1 
         imagePullPolicy: Always
         env:
         - name: PLANESPOTTER_API_ENDPOINT
           value: planespotter-svc
       - name: telegraf
-        image: puckpuck/wavefront-telegraf
+        # image: puckpuck/wavefront-telegraf
+        image: harbor.lab.local/planespotter/wavefront-telegraf:v1
         ports:
         - name: udp-statsd
           containerPort: 8125
@@ -36,7 +38,7 @@ spec:
           containerPort: 8094
         env:
         - name: WAVEFRONT_PROXY
-          value: wavefront-proxy.kube-system
+          value: wavefront-proxy.default
         - name: INTERVAL
           value: 20s
         - name: METRIC_SOURCE_NAME

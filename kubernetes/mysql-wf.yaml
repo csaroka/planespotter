@@ -30,7 +30,8 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: mysql
-        image: mysql:5.6
+        # image: mysql:5.6
+        image: harbor.lab.local/planespotter/mysql:v1
         env:
           # Use secret in real usage
         - name: MYSQL_ROOT_PASSWORD
@@ -49,7 +50,8 @@ spec:
           subPath: mysql-start.sh
         command: ["/bin/mysql-start.sh"]
       - name: telegraf
-        image: puckpuck/wavefront-telegraf-sidecar
+        # image: puckpuck/wavefront-telegraf-sidecar
+        image: harbor.lab.local/planespotter/wavefront-telegraf-sidecar:v1
         ports:
         - name: udp-statsd
           containerPort: 8125
@@ -59,7 +61,7 @@ spec:
           containerPort: 8094
         env:
         - name: WAVEFRONT_PROXY
-          value: wavefront-proxy.kube-system
+          value: wavefront-proxy.default
         - name: INTERVAL
           value: 60s
         - name: METRIC_SOURCE_NAME
