@@ -21,7 +21,7 @@ spec:
       containers:
       - name: planespotter-frontend
         # image: nvpnathan/planespotter-frontend:v1
-        image: harbor.lab.local/planespotter/frontend:v1 
+        image: harbor.lab.local/planespotter/nvp-frontend:v1 
         imagePullPolicy: Always
         env:
         - name: PLANESPOTTER_API_ENDPOINT

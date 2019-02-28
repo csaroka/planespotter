@@ -5,17 +5,17 @@ metadata:
   name: planespotter-app
   namespace: planespotter
   labels:
-    app: planespotter
+    app: planespotter-app
     tier: app-tier
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: planespotter
+      app: planespotter-app
   template:
     metadata:
       labels:
-        app: planespotter
+        app: planespotter-app
     spec:
       containers:
       - name: planespotter
@@ -59,7 +59,7 @@ spec:
     # the port that this service should serve on
     - port: 80
   selector:
-    app: planespotter
+    app: planespotter-app
 ---
 apiVersion: extensions/v1beta1
 kind: Ingress
